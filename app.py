@@ -9,11 +9,13 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+from tema import QSS
 from ventana import VentanaPrincipal
 
 
 def main():
     app = QApplication(sys.argv)
+    app.setStyleSheet(QSS)
     # Que cerrar la ventana no cierre la app: sigue viva en la bandeja
     app.setQuitOnLastWindowClosed(False)
     ventana = VentanaPrincipal()

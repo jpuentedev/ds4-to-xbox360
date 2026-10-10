@@ -11,12 +11,13 @@ from PySide6.QtWidgets import (
 )
 
 from motor import MODO_LUZ_BATERIA, MODO_LUZ_FIJO, Motor
+from tema import ACENTO, AVISO, BORDE, EXITO, FONDO, TEXTO_SECUNDARIO
 from vista_mando import VistaMando
 
 NOMBRE_APP = "Emulador de Control"
 
 
-def crear_icono(color="#4c9aff"):
+def crear_icono(color=ACENTO):
     """Icono generado por código: la silueta de un mando."""
     pixmap = QPixmap(64, 64)
     pixmap.fill(Qt.transparent)
@@ -27,7 +28,7 @@ def crear_icono(color="#4c9aff"):
     p.drawRoundedRect(QRectF(4, 16, 56, 26), 13, 13)
     p.drawEllipse(QRectF(4, 24, 22, 32))
     p.drawEllipse(QRectF(38, 24, 22, 32))
-    p.setBrush(QColor("#14161a"))
+    p.setBrush(QColor(FONDO))
     p.drawEllipse(QRectF(14, 22, 9, 9))
     p.drawEllipse(QRectF(41, 22, 9, 9))
     p.end()
@@ -35,7 +36,7 @@ def crear_icono(color="#4c9aff"):
 
 
 def css_color(rgb):
-    return f"background-color: rgb{tuple(rgb)}; border: 1px solid #555; border-radius: 4px;"
+    return f"background-color: rgb{tuple(rgb)}; border: 1px solid {BORDE}; border-radius: 4px; padding: 0; min-height: 0;"
 
 
 class VentanaPrincipal(QMainWindow):
@@ -75,7 +76,7 @@ class VentanaPrincipal(QMainWindow):
         self.lbl_conexion.setTextFormat(Qt.RichText)
         self.lbl_bateria = QLabel()
         self.lbl_tasa = QLabel()
-        self.lbl_tasa.setStyleSheet("color: gray;")
+        self.lbl_tasa.setProperty("secundario", True)
 
         fila_estado = QHBoxLayout()
         fila_estado.addWidget(self.lbl_conexion)
@@ -127,7 +128,7 @@ class VentanaPrincipal(QMainWindow):
         capa.addWidget(self.btn_vibrar)
         nota = QLabel("La vibración que pidan los juegos se reenvía al mando.")
         nota.setWordWrap(True)
-        nota.setStyleSheet("color: gray;")
+        nota.setProperty("secundario", True)
         capa.addWidget(nota)
         capa.addStretch()
 
@@ -170,10 +171,10 @@ class VentanaPrincipal(QMainWindow):
         self.lbl_bateria.setVisible(conectado)
         self.lbl_tasa.setVisible(conectado)
         if conectado:
-            self.lbl_conexion.setText(f"<span style='color:#3fd1a0'>●</span> <b>{nombre}</b> · Bluetooth")
+            self.lbl_conexion.setText(f"<span style='color:{EXITO}'>●</span> <b>{nombre}</b> · Bluetooth")
             self.bandeja.setToolTip(f"{NOMBRE_APP}\n{nombre} conectado")
         else:
-            self.lbl_conexion.setText("<span style='color:#888'>●</span> Buscando DualShock 4…")
+            self.lbl_conexion.setText(f"<span style='color:{TEXTO_SECUNDARIO}'>●</span> Buscando DualShock 4…")
             self.bandeja.setToolTip(f"{NOMBRE_APP}\nSin mando")
 
     def _al_cambiar_emulacion(self, activo):
@@ -195,13 +196,18 @@ class VentanaPrincipal(QMainWindow):
     def _refrescar_emulacion(self):
         quiere = self.motor.emular
         self.btn_emular.setText("Detener emulación" if quiere else "Iniciar emulación")
+        # Violeta para invitar a iniciar; normal cuando ya está emulando.
+        # Qt no reaplica el QSS al cambiar una propiedad: hay que "repulirlo".
+        self.btn_emular.setProperty("primario", not quiere)
+        self.btn_emular.style().unpolish(self.btn_emular)
+        self.btn_emular.style().polish(self.btn_emular)
         self.accion_emular.setChecked(quiere)
         if self._virtual_activo:
-            self.lbl_emulacion.setText("<span style='color:#3fd1a0'>●</span> Xbox 360 virtual activo")
+            self.lbl_emulacion.setText(f"<span style='color:{EXITO}'>●</span> Xbox 360 virtual activo")
         elif quiere:
-            self.lbl_emulacion.setText("<span style='color:#888'>●</span> Esperando al mando…")
+            self.lbl_emulacion.setText(f"<span style='color:{AVISO}'>●</span> Esperando al mando…")
         else:
-            self.lbl_emulacion.setText("<span style='color:#888'>●</span> Xbox 360 virtual apagado")
+            self.lbl_emulacion.setText(f"<span style='color:{TEXTO_SECUNDARIO}'>●</span> Xbox 360 virtual apagado")
 
     def _al_cambiar_modo_luz(self):
         self.motor.modo_luz = MODO_LUZ_BATERIA if self.radio_bateria.isChecked() else MODO_LUZ_FIJO
