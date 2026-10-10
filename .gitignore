@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+
+# Configuración local de Claude Code
+.claude/
