@@ -49,7 +49,10 @@ def ejecutables_emulador():
 
     Con un .venv, Windows arranca primero .venv\\Scripts\\python.exe y este
     lanza el Python base, que es quien abre el mando: hacen falta los dos.
+    Empaquetado con PyInstaller ("frozen"), el que abre el mando es el .exe.
     """
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
     rutas = {sys.executable, getattr(sys, "_base_executable", sys.executable)}
     return sorted(r for r in rutas if os.path.exists(r))
 
@@ -118,6 +121,24 @@ def ocultar_ds4():
     argumentos.append("--cloak-on")
     _ejecutar(*argumentos)  # la CLI admite varios comandos seguidos
     return len(ds4)
+
+
+def asegurar_permiso():
+    """
+    Si la ocultación está activa pero este emulador no está en la lista
+    blanca (p. ej. un .exe nuevo o movido de carpeta), lo añade: si no, el
+    emulador no encontraría el mando. Devuelve True si ha tenido que añadirlo.
+    """
+    if not instalado():
+        return False
+    estado = leer_estado()
+    if not estado.activo or estado.emulador_permitido:
+        return False
+    argumentos = []
+    for ruta in ejecutables_emulador():
+        argumentos += ["--app-reg", ruta]
+    _ejecutar(*argumentos)
+    return True
 
 
 def dejar_de_ocultar():

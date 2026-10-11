@@ -1,4 +1,4 @@
-"""
+r"""
 Emulador de Control: DualShock 4 → Xbox 360.
 
 Ejecutar:  .venv\Scripts\pythonw app.py   (sin consola)

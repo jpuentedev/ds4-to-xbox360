@@ -3,3 +3,8 @@ __pycache__/
 
 # Configuración local de Claude Code
 .claude/
+
+# Empaquetado (PyInstaller)
+build/
+dist/
+*.spec

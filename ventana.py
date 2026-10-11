@@ -54,6 +54,12 @@ class VentanaPrincipal(QMainWindow):
         self._aviso_bandeja_mostrado = False
         self._virtual_activo = False
 
+        # Antes de buscar el mando: si HidHide lo oculta, que nos deje verlo
+        try:
+            hidhide.asegurar_permiso()
+        except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired):
+            pass  # la página de HidHide mostrará el problema
+
         self.motor = Motor()
         self.motor.emular = self._ajustes.value("emular", True, type=bool)
         self.motor.modo_luz = self._ajustes.value("modo_luz", MODO_LUZ_BATERIA)
@@ -371,14 +377,26 @@ class VentanaPrincipal(QMainWindow):
             self.lbl_hh_ds4.setText(punto(AVISO, "DS4 visible: los juegos pueden ver los dos mandos"))
         if estado.emulador_permitido:
             self.lbl_hh_lista.setText(punto(EXITO, "El emulador está en la lista blanca (puede ver el DS4)"))
+        elif estado.activo:
+            # Pasa p. ej. con el .exe nuevo si HidHide ya estaba activo de antes
+            self.lbl_hh_lista.setText(punto(ERROR, "El emulador no está en la lista blanca: no puede ver el DS4"))
         else:
             self.lbl_hh_lista.setText(punto(TEXTO_SECUNDARIO, "El emulador aún no está en la lista blanca"))
 
-        self.btn_hidhide.setText("Dejar de ocultar" if estado.activo else "Ocultar DS4 a los juegos")
-        self.btn_hidhide.setProperty("primario", not estado.activo)
+        # "Dejar de ocultar" solo si ya está todo bien; si no, el botón lo arregla
+        # (ocultar_ds4 añade el emulador a la lista blanca antes de ocultar)
+        todo_bien = estado.activo and estado.emulador_permitido
+        if todo_bien:
+            texto = "Dejar de ocultar"
+        elif estado.activo:
+            texto = "Permitir al emulador ver el DS4"
+        else:
+            texto = "Ocultar DS4 a los juegos"
+        self.btn_hidhide.setText(texto)
+        self.btn_hidhide.setProperty("primario", not todo_bien)
         self.btn_hidhide.style().unpolish(self.btn_hidhide)
         self.btn_hidhide.style().polish(self.btn_hidhide)
-        self._hidhide_activo = estado.activo
+        self._hidhide_activo = todo_bien
         self.lbl_hh_nota.setText(
             "Sigue activo aunque cierres la app: si lo dejas activado y cierras el emulador, "
             "los juegos no verán ningún mando hasta que lo vuelvas a abrir."
