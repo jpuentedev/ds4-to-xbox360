@@ -6,7 +6,7 @@ from PySide6.QtCore import QRectF, QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QColorDialog, QGroupBox, QHBoxLayout, QLabel, QMainWindow,
-    QMenu, QPushButton, QRadioButton, QSlider, QSystemTrayIcon,
+    QListWidget, QMenu, QPushButton, QRadioButton, QSlider, QStackedWidget, QSystemTrayIcon,
     QVBoxLayout, QWidget,
 )
 
@@ -141,7 +141,7 @@ class VentanaPrincipal(QMainWindow):
         fila_cajas.addWidget(caja_emulacion, 1)
         fila_cajas.addWidget(caja_luz, 1)
 
-        # Zonas muertas (en el paso 4 pasarán a su propia página)
+        # Zonas muertas
         self.zona_izq = VistaZonaMuerta()
         self.zona_der = VistaZonaMuerta()
         caja_zonas = QGroupBox("Zonas muertas")
@@ -153,16 +153,47 @@ class VentanaPrincipal(QMainWindow):
         capa.addLayout(fila)
         nota = QLabel("Gris: posición real del stick · Azul: lo que recibe el juego · Rojo: zona muerta")
         nota.setProperty("secundario", True)
+        nota.setWordWrap(True)
         capa.addWidget(nota)
 
-        central = QWidget()
-        capa = QVBoxLayout(central)
-        capa.addLayout(fila_estado)
+        # Páginas: cada una es un QWidget dentro del QStackedWidget
+        pagina_mando = QWidget()
+        capa = QVBoxLayout(pagina_mando)
+        capa.setContentsMargins(0, 0, 0, 0)
         capa.addWidget(self.vista, 1)
         capa.addLayout(fila_cajas)
+
+        pagina_sticks = QWidget()
+        capa = QVBoxLayout(pagina_sticks)
+        capa.setContentsMargins(0, 0, 0, 0)
         capa.addWidget(caja_zonas)
+        capa.addStretch()
+
+        self.paginas = QStackedWidget()
+        self.sidebar = QListWidget()
+        self.sidebar.setObjectName("sidebar")  # así le aplica el estilo QListWidget#sidebar
+        self.sidebar.setFixedWidth(160)
+        for texto, pagina in (("🕹️  Mando", pagina_mando), ("🎯  Sticks", pagina_sticks)):
+            self.sidebar.addItem(texto)
+            self.paginas.addWidget(pagina)
+        # Elegir en la lista cambia la página; también recordamos la última
+        self.sidebar.currentRowChanged.connect(self.paginas.setCurrentIndex)
+        self.sidebar.currentRowChanged.connect(lambda fila: self._ajustes.setValue("pagina", fila))
+        self.sidebar.setCurrentRow(self._ajustes.value("pagina", 0, type=int))
+
+        contenido = QVBoxLayout()
+        contenido.setContentsMargins(12, 8, 12, 12)
+        contenido.addLayout(fila_estado)
+        contenido.addWidget(self.paginas, 1)
+
+        central = QWidget()
+        capa = QHBoxLayout(central)
+        capa.setContentsMargins(0, 0, 0, 0)
+        capa.setSpacing(0)
+        capa.addWidget(self.sidebar)
+        capa.addLayout(contenido, 1)
         self.setCentralWidget(central)
-        self.resize(640, 680)
+        self.resize(800, 540)
 
     def _control_zona(self, titulo, atributo, vista):
         """Deslizador + dibujo para la zona muerta de un stick (atributo del motor)."""
@@ -182,13 +213,10 @@ class VentanaPrincipal(QMainWindow):
         al_cambiar(porcentaje)  # setValue no avisa si el valor no cambia (p. ej. 0)
 
         columna = QVBoxLayout()
+        columna.addWidget(vista, 0, Qt.AlignHCenter)
         columna.addWidget(etiqueta)
         columna.addWidget(deslizador)
-        columna.addStretch()
-        fila = QHBoxLayout()
-        fila.addWidget(vista)
-        fila.addLayout(columna, 1)
-        return fila
+        return columna
 
     def _crear_bandeja(self):
         self.bandeja = QSystemTrayIcon(crear_icono(), self)

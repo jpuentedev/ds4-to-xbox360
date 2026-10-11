@@ -259,7 +259,7 @@ class VistaZonaMuerta(QWidget):
     Punto azul: lo que recibe el juego después de la zona muerta.
     """
 
-    LADO = 96
+    LADO = 160
 
     def __init__(self, parent=None):
         super().__init__(parent)
