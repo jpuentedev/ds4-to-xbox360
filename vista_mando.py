@@ -11,6 +11,8 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
+import zona_muerta
+
 ANCHO = 400
 ALTO = 250
 
@@ -27,6 +29,7 @@ ACTIVO = QColor("#2563EB")
 TEXTO = QColor("#1F2937")  # sobre el fondo claro de la app
 TEXTO_PIEZA = QColor("#FFFFFF")  # sobre las piezas negras
 ETIQUETA = QColor("#6B7280")  # SHARE / OPTIONS, sobre el cuerpo blanco
+ZONA = QColor(239, 68, 68, 70)  # zona muerta: rojo translúcido
 
 COLORES_FRONTALES = {
     "triangulo": QColor("#10B981"),
@@ -246,3 +249,55 @@ class VistaMando(QWidget):
         p.setPen(QPen(ACTIVO, 2.5) if pulsado else Qt.NoPen)
         p.setBrush(PIEZA)
         p.drawEllipse(seta, radio_seta, radio_seta)
+
+
+class VistaZonaMuerta(QWidget):
+    """
+    Recorrido de un stick visto desde arriba, con la zona muerta en rojo.
+
+    Punto gris: dónde está el stick de verdad.
+    Punto azul: lo que recibe el juego después de la zona muerta.
+    """
+
+    LADO = 96
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(self.LADO, self.LADO)
+        self._stick = None
+        self._zona = 0.0
+
+    def set_stick(self, stick):
+        self._stick = stick
+        self.update()
+
+    def set_zona(self, zona):
+        self._zona = zona
+        self.update()
+
+    def paintEvent(self, _evento):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        centro = QPointF(self.LADO / 2, self.LADO / 2)
+        radio = self.LADO / 2 - 6  # margen para que el punto no se corte
+
+        p.setPen(QPen(BORDE, 1.5))
+        p.setBrush(CUERPO)
+        p.drawEllipse(centro, radio, radio)
+        p.setPen(QPen(BORDE, 1, Qt.DashLine))
+        p.drawLine(QPointF(centro.x() - radio, centro.y()), QPointF(centro.x() + radio, centro.y()))
+        p.drawLine(QPointF(centro.x(), centro.y() - radio), QPointF(centro.x(), centro.y() + radio))
+
+        if self._zona > 0:
+            p.setPen(Qt.NoPen)
+            p.setBrush(ZONA)
+            p.drawEllipse(centro, radio * self._zona, radio * self._zona)
+
+        if self._stick is None:
+            return
+        crudo = (zona_muerta.normalizar(self._stick.x), zona_muerta.normalizar(self._stick.y))
+        final = zona_muerta.aplicar(self._stick, self._zona)
+        for (x, y), color, tam in ((crudo, ANILLO_STICK, 5), (final, ACTIVO, 4)):
+            p.setPen(Qt.NoPen)
+            p.setBrush(color)
+            p.drawEllipse(QPointF(centro.x() + x * radio, centro.y() + y * radio), tam, tam)

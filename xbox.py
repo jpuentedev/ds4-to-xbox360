@@ -4,6 +4,8 @@ Mando de Xbox 360 virtual (vía ViGEmBus + vgamepad) y traducción desde el DS4.
 
 import vgamepad as vg
 
+import zona_muerta
+
 B = vg.XUSB_BUTTON
 
 # Botón del DS4 (nombre del campo en EstadoDS4) → botón de Xbox 360
@@ -27,13 +29,8 @@ MAPEO_BOTONES = {
 
 
 def eje(valor):
-    """DS4 (0-255) → Xbox (-32768 a 32767)."""
-    return valor * 257 - 32768
-
-
-def eje_invertido(valor):
-    """Igual que eje(), pero invertido: en el DS4 arriba es 0 y en Xbox es positivo."""
-    return 32767 - valor * 257
+    """-1.0 a 1.0 → Xbox (-32767 a 32767)."""
+    return round(valor * 32767)
 
 
 class Xbox360Virtual:
@@ -57,16 +54,19 @@ class Xbox360Virtual:
         self._mando = None
         self.vibracion = (0, 0)
 
-    def enviar(self, estado):
-        """Copia el EstadoDS4 al mando virtual."""
+    def enviar(self, estado, zona_izq=0.0, zona_der=0.0):
+        """Copia el EstadoDS4 al mando virtual, con la zona muerta de cada stick."""
         for campo, boton in MAPEO_BOTONES.items():
             if getattr(estado, campo):
                 self._mando.press_button(boton)
             else:
                 self._mando.release_button(boton)
 
-        self._mando.left_joystick(eje(estado.stick_izq.x), eje_invertido(estado.stick_izq.y))
-        self._mando.right_joystick(eje(estado.stick_der.x), eje_invertido(estado.stick_der.y))
+        # En el DS4 arriba es y negativa y en Xbox positiva: de ahí el -y
+        x, y = zona_muerta.aplicar(estado.stick_izq, zona_izq)
+        self._mando.left_joystick(eje(x), eje(-y))
+        x, y = zona_muerta.aplicar(estado.stick_der, zona_der)
+        self._mando.right_joystick(eje(x), eje(-y))
         self._mando.left_trigger(estado.l2)
         self._mando.right_trigger(estado.r2)
 

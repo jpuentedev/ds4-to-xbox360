@@ -42,6 +42,8 @@ class Motor(QThread):
         self.emular = True
         self.modo_luz = MODO_LUZ_BATERIA
         self.color_fijo = (0, 0, 255)
+        self.zona_muerta_izq = 0.0  # radio de 0.0 a 1.0
+        self.zona_muerta_der = 0.0
         self._prueba_vibracion_hasta = 0.0
         self._detener = False
 
@@ -110,7 +112,7 @@ class Motor(QThread):
                 self.emulacion_cambiada.emit(False)
 
             if xbox is not None:
-                xbox.enviar(estado)
+                xbox.enviar(estado, self.zona_muerta_izq, self.zona_muerta_der)
 
             if ahora < self._prueba_vibracion_hasta:
                 vibracion = (INTENSIDAD_PRUEBA_VIBRACION, INTENSIDAD_PRUEBA_VIBRACION)

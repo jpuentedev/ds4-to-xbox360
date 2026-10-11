@@ -6,16 +6,17 @@ from PySide6.QtCore import QRectF, QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QColorDialog, QGroupBox, QHBoxLayout, QLabel, QMainWindow,
-    QMenu, QPushButton, QRadioButton, QSystemTrayIcon,
+    QMenu, QPushButton, QRadioButton, QSlider, QSystemTrayIcon,
     QVBoxLayout, QWidget,
 )
 
 from motor import MODO_LUZ_BATERIA, MODO_LUZ_FIJO, Motor
 from tema import ACENTO, AVISO, BORDE, ERROR, EXITO, FONDO, TEXTO_SECUNDARIO
-from vista_mando import VistaMando
+from vista_mando import VistaMando, VistaZonaMuerta
 
 NOMBRE_APP = "Emulador de Control"
 BATERIA_CRITICA = 15  # % por debajo del cual la batería se muestra en rojo
+ZONA_MUERTA_MAX = 30  # % máximo de los deslizadores
 
 
 def crear_icono(color=ACENTO):
@@ -55,6 +56,8 @@ class VentanaPrincipal(QMainWindow):
         self.motor.modo_luz = self._ajustes.value("modo_luz", MODO_LUZ_BATERIA)
         color = self._ajustes.value("color_fijo", "0,0,255")
         self.motor.color_fijo = tuple(int(c) for c in color.split(","))
+        self.motor.zona_muerta_izq = self._ajustes.value("zona_muerta_izq", 0, type=int) / 100
+        self.motor.zona_muerta_der = self._ajustes.value("zona_muerta_der", 0, type=int) / 100
 
         self._crear_interfaz()
         self._crear_bandeja()
@@ -138,13 +141,54 @@ class VentanaPrincipal(QMainWindow):
         fila_cajas.addWidget(caja_emulacion, 1)
         fila_cajas.addWidget(caja_luz, 1)
 
+        # Zonas muertas (en el paso 4 pasarán a su propia página)
+        self.zona_izq = VistaZonaMuerta()
+        self.zona_der = VistaZonaMuerta()
+        caja_zonas = QGroupBox("Zonas muertas")
+        capa = QVBoxLayout(caja_zonas)
+        fila = QHBoxLayout()
+        fila.setSpacing(12)
+        fila.addLayout(self._control_zona("Stick izquierdo", "zona_muerta_izq", self.zona_izq), 1)
+        fila.addLayout(self._control_zona("Stick derecho", "zona_muerta_der", self.zona_der), 1)
+        capa.addLayout(fila)
+        nota = QLabel("Gris: posición real del stick · Azul: lo que recibe el juego · Rojo: zona muerta")
+        nota.setProperty("secundario", True)
+        capa.addWidget(nota)
+
         central = QWidget()
         capa = QVBoxLayout(central)
         capa.addLayout(fila_estado)
         capa.addWidget(self.vista, 1)
         capa.addLayout(fila_cajas)
+        capa.addWidget(caja_zonas)
         self.setCentralWidget(central)
-        self.resize(640, 520)
+        self.resize(640, 680)
+
+    def _control_zona(self, titulo, atributo, vista):
+        """Deslizador + dibujo para la zona muerta de un stick (atributo del motor)."""
+        porcentaje = round(getattr(self.motor, atributo) * 100)
+        etiqueta = QLabel()
+        deslizador = QSlider(Qt.Horizontal)
+        deslizador.setRange(0, ZONA_MUERTA_MAX)
+
+        def al_cambiar(valor):
+            setattr(self.motor, atributo, valor / 100)
+            self._ajustes.setValue(atributo, valor)
+            etiqueta.setText(f"{titulo}: <b>{valor}%</b>")
+            vista.set_zona(valor / 100)
+
+        deslizador.valueChanged.connect(al_cambiar)
+        deslizador.setValue(porcentaje)
+        al_cambiar(porcentaje)  # setValue no avisa si el valor no cambia (p. ej. 0)
+
+        columna = QVBoxLayout()
+        columna.addWidget(etiqueta)
+        columna.addWidget(deslizador)
+        columna.addStretch()
+        fila = QHBoxLayout()
+        fila.addWidget(vista)
+        fila.addLayout(columna, 1)
+        return fila
 
     def _crear_bandeja(self):
         self.bandeja = QSystemTrayIcon(crear_icono(), self)
@@ -168,6 +212,9 @@ class VentanaPrincipal(QMainWindow):
 
     def _al_cambiar_conexion(self, conectado, nombre):
         self.vista.set_conectado(conectado)
+        if not conectado:
+            self.zona_izq.set_stick(None)
+            self.zona_der.set_stick(None)
         self.btn_vibrar.setEnabled(conectado)
         self.lbl_bateria.setVisible(conectado)
         self.lbl_tasa.setVisible(conectado)
@@ -184,6 +231,8 @@ class VentanaPrincipal(QMainWindow):
 
     def _al_actualizar_estado(self, estado):
         self.vista.set_estado(estado)
+        self.zona_izq.set_stick(estado.stick_izq)
+        self.zona_der.set_stick(estado.stick_der)
         nivel = min(estado.bateria * 10, 100)
         texto = f"{'Cargando' if estado.cable else 'Batería'} {nivel}%"
         if not estado.cable and nivel < BATERIA_CRITICA:
