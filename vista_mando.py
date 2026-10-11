@@ -6,24 +6,33 @@ del widget manteniendo la proporción.
 """
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QTransform
+from PySide6.QtGui import (
+    QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QTransform,
+)
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 ANCHO = 400
 ALTO = 250
 
-CUERPO = QColor("#2b2f36")
-BORDE = QColor("#14161a")
-BOTON = QColor("#40464f")
-SIMBOLO = QColor("#9aa3ad")
-ACTIVO = QColor("#4c9aff")
-TEXTO = QColor("#e6e8eb")
+# Mando blanco con detalles negros ("Glacier White", ver diseñoGemini.md)
+CUERPO = QColor("#FFFFFF")
+CUERPO_SOMBRA = QColor("#E2E8F0")  # extremos del cuerpo, para dar volumen
+BORDE = QColor("#CBD5E1")
+PIEZA = QColor("#1F2937")  # cruceta, sticks, botones
+GATILLO = QColor("#374151")
+TOUCHPAD = QColor("#111827")
+TOUCHPAD_RAYA = QColor("#1F2937")
+ANILLO_STICK = QColor("#9CA3AF")
+ACTIVO = QColor("#2563EB")
+TEXTO = QColor("#1F2937")  # sobre el fondo claro de la app
+TEXTO_PIEZA = QColor("#FFFFFF")  # sobre las piezas negras
+ETIQUETA = QColor("#6B7280")  # SHARE / OPTIONS, sobre el cuerpo blanco
 
 COLORES_FRONTALES = {
-    "triangulo": QColor("#3fd1a0"),
-    "circulo": QColor("#ff5a6a"),
-    "cruz": QColor("#6fa8ff"),
-    "cuadrado": QColor("#f29be0"),
+    "triangulo": QColor("#10B981"),
+    "circulo": QColor("#EF4444"),
+    "cruz": QColor("#3B82F6"),
+    "cuadrado": QColor("#EC4899"),
 }
 
 
@@ -81,6 +90,9 @@ class VistaMando(QWidget):
 
     def _cuerpo(self, p):
         cuerpo = QPainterPath()
+        # WindingFill: las zonas donde se solapan las piezas se rellenan
+        # (con el OddEvenFill por defecto quedarían huecos)
+        cuerpo.setFillRule(Qt.WindingFill)
         cuerpo.addRoundedRect(QRectF(40, 48, 320, 112), 48, 48)
         # Empuñaduras: elipses inclinadas hacia fuera
         for cx, angulo in ((92, 18), (308, -18)):
@@ -88,8 +100,15 @@ class VistaMando(QWidget):
             empunadura.addEllipse(QRectF(-38, -70, 76, 140))
             giro = QTransform().translate(cx, 170).rotate(angulo)
             cuerpo.addPath(giro.map(empunadura))
-        p.setPen(QPen(BORDE, 2))
-        p.setBrush(CUERPO)
+
+        # Blanco en el centro que se oscurece un poco hacia los lados
+        degradado = QLinearGradient(40, 0, 360, 0)
+        degradado.setColorAt(0, CUERPO_SOMBRA)
+        degradado.setColorAt(0.25, CUERPO)
+        degradado.setColorAt(0.75, CUERPO)
+        degradado.setColorAt(1, CUERPO_SOMBRA)
+        p.setPen(QPen(BORDE, 1.5))
+        p.setBrush(degradado)
         p.drawPath(cuerpo.simplified())
 
     def _gatillos(self, p, e):
@@ -97,33 +116,44 @@ class VistaMando(QWidget):
             (62, e.l2 if e else 0, e.l1 if e else False, "L"),
             (262, e.r2 if e else 0, e.r1 if e else False, "R"),
         ):
-            # L2 / R2: medidor que se llena según cuánto se pulsa
+            # L2 / R2: se rellena de abajo arriba según cuánto se pulsa
             caja = QRectF(x, 4, 76, 22)
-            p.setPen(QPen(BORDE, 1.5))
-            p.setBrush(BOTON)
+            p.setPen(Qt.NoPen)
+            p.setBrush(GATILLO)
             p.drawRoundedRect(caja, 6, 6)
             if gatillo:
-                lleno = QRectF(caja.left(), caja.top(), caja.width() * gatillo / 255, caja.height())
-                p.setPen(Qt.NoPen)
+                alto = caja.height() * gatillo / 255
+                lleno = QRectF(caja.left(), caja.bottom() - alto, caja.width(), alto)
+                p.save()
+                recorte = QPainterPath()
+                recorte.addRoundedRect(caja, 6, 6)
+                p.setClipPath(recorte)
                 p.setBrush(ACTIVO)
-                p.drawRoundedRect(lleno, 6, 6)
-            p.setPen(TEXTO)
+                p.drawRect(lleno)
+                p.restore()
+            p.setPen(TEXTO_PIEZA)
             p.setFont(QFont("Segoe UI", 8, QFont.Bold))
             p.drawText(caja, Qt.AlignCenter, f"{texto}2  {gatillo}")
 
             # L1 / R1
-            p.setPen(QPen(BORDE, 1.5))
-            p.setBrush(ACTIVO if boton else BOTON)
+            p.setPen(Qt.NoPen)
+            p.setBrush(ACTIVO if boton else GATILLO)
             caja = QRectF(x, 30, 76, 14)
             p.drawRoundedRect(caja, 5, 5)
-            p.setPen(TEXTO)
+            p.setPen(TEXTO_PIEZA)
             p.drawText(caja, Qt.AlignCenter, f"{texto}1")
 
     def _touchpad(self, p, e):
         caja = QRectF(145, 56, 110, 62)
-        p.setPen(QPen(BORDE, 1.5))
-        p.setBrush(ACTIVO.darker(150) if e and e.touchpad else QColor("#24272d"))
+        p.setPen(QPen(PIEZA, 1.5))
+        p.setBrush(ACTIVO if e and e.touchpad else TOUCHPAD)
         p.drawRoundedRect(caja, 8, 8)
+        # Rayas horizontales finas, como la textura del touchpad real
+        p.setPen(QPen(TOUCHPAD_RAYA, 0.6))
+        y = caja.top() + 6
+        while y < caja.bottom() - 4:
+            p.drawLine(QPointF(caja.left() + 6, y), QPointF(caja.right() - 6, y))
+            y += 4
         # Barra de luz en el borde superior, con el color real del mando
         p.setPen(Qt.NoPen)
         p.setBrush(self._color_luz)
@@ -137,11 +167,11 @@ class VistaMando(QWidget):
             (QRectF(cx - grueso / 2, cy + grueso / 2, grueso, largo), e.abajo if e else False),
             (QRectF(cx - grueso / 2 - largo, cy - grueso / 2, largo, grueso), e.izquierda if e else False),
         )
-        p.setPen(QPen(BORDE, 1.5))
-        p.setBrush(BOTON)
+        p.setPen(Qt.NoPen)
+        p.setBrush(PIEZA)
         p.drawRect(QRectF(cx - grueso / 2, cy - grueso / 2, grueso, grueso))
         for caja, pulsado in brazos:
-            p.setBrush(ACTIVO if pulsado else BOTON)
+            p.setBrush(ACTIVO if pulsado else PIEZA)
             p.drawRoundedRect(caja, 3, 3)
 
     def _frontales(self, p, e):
@@ -156,10 +186,11 @@ class VistaMando(QWidget):
             centro = QPointF(cx + dx, cy + dy)
             pulsado = e is not None and getattr(e, nombre)
             color = COLORES_FRONTALES[nombre]
-            p.setPen(QPen(BORDE, 1.5))
-            p.setBrush(color if pulsado else BOTON)
+            # Al pulsar, el botón se rellena con el color de su símbolo
+            p.setPen(Qt.NoPen)
+            p.setBrush(color if pulsado else PIEZA)
             p.drawEllipse(centro, radio, radio)
-            p.setPen(QPen(CUERPO if pulsado else color, 2))
+            p.setPen(QPen(TEXTO_PIEZA if pulsado else color, 1.8))
             p.setBrush(Qt.NoBrush)
             self._simbolo(p, nombre, centro, 5.5)
 
@@ -184,30 +215,34 @@ class VistaMando(QWidget):
             (QRectF(122, 58, 14, 24), e.share if e else False, "SHARE"),
             (QRectF(264, 58, 14, 24), e.options if e else False, "OPTIONS"),
         ):
-            p.setPen(QPen(BORDE, 1.5))
-            p.setBrush(ACTIVO if pulsado else BOTON)
+            p.setPen(Qt.NoPen)
+            p.setBrush(ACTIVO if pulsado else PIEZA)
             p.drawRoundedRect(caja, 5, 5)
-            p.setPen(SIMBOLO)
+            p.setPen(ETIQUETA)
             p.drawText(QRectF(caja.center().x() - 25, caja.top() - 12, 50, 10), Qt.AlignCenter, texto)
 
-        p.setPen(QPen(BORDE, 1.5))
-        p.setBrush(ACTIVO if e and e.ps else BOTON)
+        p.setPen(Qt.NoPen)
+        p.setBrush(ACTIVO if e and e.ps else PIEZA)
         p.drawEllipse(QPointF(200, 140), 10, 10)
-        p.setPen(SIMBOLO)
+        p.setPen(TEXTO_PIEZA)
         p.setFont(QFont("Segoe UI", 7, QFont.Bold))
         p.drawText(QRectF(190, 130, 20, 20), Qt.AlignCenter, "PS")
 
     def _stick(self, p, centro, stick, pulsado):
         radio_hueco, radio_seta = 28, 17
-        p.setPen(QPen(BORDE, 2))
-        p.setBrush(QColor("#1d2025"))
+        # Base blanca con un reborde interno gris
+        p.setPen(QPen(BORDE, 1.5))
+        p.setBrush(CUERPO)
         p.drawEllipse(centro, radio_hueco, radio_hueco)
+        p.setPen(QPen(ANILLO_STICK, 1.5))
+        p.setBrush(Qt.NoBrush)
+        p.drawEllipse(centro, radio_hueco - 3, radio_hueco - 3)
 
         x = y = 0.0
         if stick is not None:
             x = (stick.x - 128) / 128 * (radio_hueco - radio_seta)
             y = (stick.y - 128) / 128 * (radio_hueco - radio_seta)
         seta = QPointF(centro.x() + x, centro.y() + y)
-        p.setPen(QPen(ACTIVO if pulsado else BORDE, 2.5))
-        p.setBrush(BOTON.lighter(115))
+        p.setPen(QPen(ACTIVO, 2.5) if pulsado else Qt.NoPen)
+        p.setBrush(PIEZA)
         p.drawEllipse(seta, radio_seta, radio_seta)
