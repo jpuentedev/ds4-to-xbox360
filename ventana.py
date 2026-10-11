@@ -11,10 +11,11 @@ from PySide6.QtWidgets import (
 )
 
 from motor import MODO_LUZ_BATERIA, MODO_LUZ_FIJO, Motor
-from tema import ACENTO, AVISO, BORDE, EXITO, FONDO, TEXTO_SECUNDARIO
+from tema import ACENTO, AVISO, BORDE, ERROR, EXITO, FONDO, TEXTO_SECUNDARIO
 from vista_mando import VistaMando
 
 NOMBRE_APP = "Emulador de Control"
+BATERIA_CRITICA = 15  # % por debajo del cual la batería se muestra en rojo
 
 
 def crear_icono(color=ACENTO):
@@ -75,6 +76,7 @@ class VentanaPrincipal(QMainWindow):
         self.lbl_conexion = QLabel()
         self.lbl_conexion.setTextFormat(Qt.RichText)
         self.lbl_bateria = QLabel()
+        self.lbl_bateria.setTextFormat(Qt.RichText)
         self.lbl_tasa = QLabel()
         self.lbl_tasa.setProperty("secundario", True)
 
@@ -114,28 +116,27 @@ class VentanaPrincipal(QMainWindow):
         fila_fijo.addWidget(self.radio_fijo)
         fila_fijo.addWidget(self.btn_color)
         fila_fijo.addStretch()
-        caja_luz = QGroupBox("Barra de luz")
-        capa = QVBoxLayout(caja_luz)
-        capa.addWidget(self.radio_bateria)
-        capa.addLayout(fila_fijo)
-        capa.addStretch()
 
-        # Vibración
+        # Vibración (comparte caja con la barra de luz)
         self.btn_vibrar = QPushButton("Probar vibración")
         self.btn_vibrar.clicked.connect(self.motor.probar_vibracion)
-        caja_vibracion = QGroupBox("Vibración")
-        capa = QVBoxLayout(caja_vibracion)
-        capa.addWidget(self.btn_vibrar)
         nota = QLabel("La vibración que pidan los juegos se reenvía al mando.")
         nota.setWordWrap(True)
         nota.setProperty("secundario", True)
+
+        caja_luz = QGroupBox("Barra de luz y vibración")
+        capa = QVBoxLayout(caja_luz)
+        capa.addWidget(self.radio_bateria)
+        capa.addLayout(fila_fijo)
+        capa.addWidget(self.btn_vibrar)
         capa.addWidget(nota)
         capa.addStretch()
 
+        # Dos columnas del mismo ancho
         fila_cajas = QHBoxLayout()
+        fila_cajas.setSpacing(12)
         fila_cajas.addWidget(caja_emulacion, 1)
         fila_cajas.addWidget(caja_luz, 1)
-        fila_cajas.addWidget(caja_vibracion, 1)
 
         central = QWidget()
         capa = QVBoxLayout(central)
@@ -184,7 +185,10 @@ class VentanaPrincipal(QMainWindow):
     def _al_actualizar_estado(self, estado):
         self.vista.set_estado(estado)
         nivel = min(estado.bateria * 10, 100)
-        self.lbl_bateria.setText(f"{'Cargando' if estado.cable else 'Batería'} {nivel}%")
+        texto = f"{'Cargando' if estado.cable else 'Batería'} {nivel}%"
+        if not estado.cable and nivel < BATERIA_CRITICA:
+            texto = f"<span style='color:{ERROR}'><b>{texto}</b></span>"
+        self.lbl_bateria.setText(texto)
 
     # --- acciones del usuario ---------------------------------------------
 
