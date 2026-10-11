@@ -2,6 +2,8 @@
 Ventana principal e icono de la bandeja del sistema.
 """
 
+import subprocess
+
 from PySide6.QtCore import QRectF, QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
@@ -11,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from motor import MODO_LUZ_BATERIA, MODO_LUZ_FIJO, Motor
+import hidhide
 from tema import ACENTO, AVISO, BORDE, ERROR, EXITO, FONDO, TEXTO_SECUNDARIO
 from vista_mando import VistaMando, VistaZonaMuerta
 
@@ -169,13 +172,23 @@ class VentanaPrincipal(QMainWindow):
         capa.addWidget(caja_zonas)
         capa.addStretch()
 
+        pagina_hidhide = self._crear_pagina_hidhide()
+
         self.paginas = QStackedWidget()
         self.sidebar = QListWidget()
         self.sidebar.setObjectName("sidebar")  # así le aplica el estilo QListWidget#sidebar
         self.sidebar.setFixedWidth(160)
-        for texto, pagina in (("🕹️  Mando", pagina_mando), ("🎯  Sticks", pagina_sticks)):
+        for texto, pagina in (
+            ("🕹️  Mando", pagina_mando),
+            ("🎯  Sticks", pagina_sticks),
+            ("🛡️  HidHide", pagina_hidhide),
+        ):
             self.sidebar.addItem(texto)
             self.paginas.addWidget(pagina)
+        # El estado de HidHide se consulta al entrar en su página (tarda ~0,3 s)
+        self.sidebar.currentRowChanged.connect(
+            lambda fila: self._refrescar_hidhide() if self.paginas.widget(fila) is pagina_hidhide else None
+        )
         # Elegir en la lista cambia la página; también recordamos la última
         self.sidebar.currentRowChanged.connect(self.paginas.setCurrentIndex)
         self.sidebar.currentRowChanged.connect(lambda fila: self._ajustes.setValue("pagina", fila))
@@ -194,6 +207,43 @@ class VentanaPrincipal(QMainWindow):
         capa.addLayout(contenido, 1)
         self.setCentralWidget(central)
         self.resize(800, 540)
+
+    def _crear_pagina_hidhide(self):
+        self.lbl_hh_instalado = QLabel()
+        self.lbl_hh_ds4 = QLabel()
+        self.lbl_hh_lista = QLabel()
+        for lbl in (self.lbl_hh_instalado, self.lbl_hh_ds4, self.lbl_hh_lista):
+            lbl.setTextFormat(Qt.RichText)
+
+        self.btn_hidhide = QPushButton()
+        self.btn_hidhide.setMinimumHeight(34)
+        self.btn_hidhide.clicked.connect(self._alternar_hidhide)
+        btn_actualizar = QPushButton("Actualizar")
+        btn_actualizar.clicked.connect(self._refrescar_hidhide)
+        fila_botones = QHBoxLayout()
+        fila_botones.addWidget(self.btn_hidhide, 1)
+        fila_botones.addWidget(btn_actualizar)
+
+        self.lbl_hh_nota = QLabel()
+        self.lbl_hh_nota.setProperty("secundario", True)
+        self.lbl_hh_nota.setWordWrap(True)
+        self.lbl_hh_nota.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+        caja = QGroupBox("Ocultar el DS4 a los juegos")
+        capa = QVBoxLayout(caja)
+        capa.addWidget(self.lbl_hh_instalado)
+        capa.addWidget(self.lbl_hh_ds4)
+        capa.addWidget(self.lbl_hh_lista)
+        capa.addSpacing(6)
+        capa.addLayout(fila_botones)
+        capa.addWidget(self.lbl_hh_nota)
+
+        pagina = QWidget()
+        capa = QVBoxLayout(pagina)
+        capa.setContentsMargins(0, 0, 0, 0)
+        capa.addWidget(caja)
+        capa.addStretch()
+        return pagina
 
     def _control_zona(self, titulo, atributo, vista):
         """Deslizador + dibujo para la zona muerta de un stick (atributo del motor)."""
@@ -289,6 +339,61 @@ class VentanaPrincipal(QMainWindow):
             self.lbl_emulacion.setText(f"<span style='color:{AVISO}'>●</span> Esperando al mando…")
         else:
             self.lbl_emulacion.setText(f"<span style='color:{TEXTO_SECUNDARIO}'>●</span> Xbox 360 virtual apagado")
+
+    def _refrescar_hidhide(self):
+        def punto(color, texto):
+            return f"<span style='color:{color}'>●</span> {texto}"
+
+        try:
+            estado = hidhide.leer_estado()
+        except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as error:
+            self.lbl_hh_instalado.setText(punto(ERROR, f"No se pudo consultar HidHide: {error}"))
+            self.lbl_hh_ds4.clear()
+            self.lbl_hh_lista.clear()
+            self.btn_hidhide.setEnabled(False)
+            return
+
+        self.btn_hidhide.setEnabled(estado.instalado)
+        if not estado.instalado:
+            self.lbl_hh_instalado.setText(punto(ERROR, "HidHide no está instalado"))
+            self.lbl_hh_ds4.clear()
+            self.lbl_hh_lista.clear()
+            self.btn_hidhide.setText("Ocultar DS4 a los juegos")
+            self.lbl_hh_nota.setText("Instálalo con:  winget install --id Nefarius.HidHide  y reinicia el PC.")
+            return
+
+        self.lbl_hh_instalado.setText(punto(EXITO, "HidHide instalado"))
+        if not estado.ds4_conectados:
+            self.lbl_hh_ds4.setText(punto(TEXTO_SECUNDARIO, "DS4 no detectado: conéctalo para poder ocultarlo"))
+        elif estado.ds4_oculto:
+            self.lbl_hh_ds4.setText(punto(EXITO, "DS4 oculto: los juegos solo ven el Xbox 360"))
+        else:
+            self.lbl_hh_ds4.setText(punto(AVISO, "DS4 visible: los juegos pueden ver los dos mandos"))
+        if estado.emulador_permitido:
+            self.lbl_hh_lista.setText(punto(EXITO, "El emulador está en la lista blanca (puede ver el DS4)"))
+        else:
+            self.lbl_hh_lista.setText(punto(TEXTO_SECUNDARIO, "El emulador aún no está en la lista blanca"))
+
+        self.btn_hidhide.setText("Dejar de ocultar" if estado.activo else "Ocultar DS4 a los juegos")
+        self.btn_hidhide.setProperty("primario", not estado.activo)
+        self.btn_hidhide.style().unpolish(self.btn_hidhide)
+        self.btn_hidhide.style().polish(self.btn_hidhide)
+        self._hidhide_activo = estado.activo
+        self.lbl_hh_nota.setText(
+            "Sigue activo aunque cierres la app: si lo dejas activado y cierras el emulador, "
+            "los juegos no verán ningún mando hasta que lo vuelvas a abrir."
+        )
+
+    def _alternar_hidhide(self):
+        try:
+            if getattr(self, "_hidhide_activo", False):
+                hidhide.dejar_de_ocultar()
+            else:
+                hidhide.ocultar_ds4()
+        except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+            self.lbl_hh_nota.setText(f"Error: {error}")
+            return
+        self._refrescar_hidhide()
 
     def _al_cambiar_modo_luz(self):
         self.motor.modo_luz = MODO_LUZ_BATERIA if self.radio_bateria.isChecked() else MODO_LUZ_FIJO
