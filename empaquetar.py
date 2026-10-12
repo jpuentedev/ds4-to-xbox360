@@ -21,7 +21,7 @@ import PyInstaller.__main__
 from PySide6.QtWidgets import QApplication
 
 NOMBRE = "EmuladorDeControl"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 ICONO = "build/icono.ico"
 REDIST = Path("instalador/redist")
 # Paquete de winget → nombre con el que lo espera instalador.iss
