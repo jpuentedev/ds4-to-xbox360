@@ -16,6 +16,7 @@ MODO_LUZ_BATERIA = "bateria"
 MODO_LUZ_FIJO = "fijo"
 
 INTERVALO_REINTENTO = 1.0     # segundos entre intentos de encontrar el mando
+REINTENTO_XBOX = 3.0          # segundos entre intentos de crear el Xbox virtual
 TIMEOUT_DESCONEXION = 3.0     # sin datos durante este tiempo = mando apagado
 INTERVALO_INTERFAZ = 1 / 60   # la vista se repinta como mucho a 60 Hz
 REENVIO_SALIDA = 1.0
@@ -87,6 +88,7 @@ class Motor(QThread):
     def _bucle(self, mando):
         """Corre mientras el mando esté conectado. Devuelve el Xbox virtual si queda alguno abierto."""
         xbox = None
+        reintentar_xbox = 0.0
         ultima_lectura = time.perf_counter()
         ultima_salida = None
         ultimo_envio = 0.0
@@ -103,9 +105,14 @@ class Motor(QThread):
                 continue
             ultima_lectura = ahora
 
-            if self.emular and xbox is None:
-                xbox = Xbox360Virtual()
-                self.emulacion_cambiada.emit(True)
+            if self.emular and xbox is None and ahora >= reintentar_xbox:
+                try:
+                    xbox = Xbox360Virtual()
+                    self.emulacion_cambiada.emit(True)
+                except Exception:  # noqa: BLE001 - vgamepad lanza Exception genérica
+                    # Casi siempre es que falta ViGEmBus: se reintenta cada poco,
+                    # así empieza a emular solo en cuanto se instale
+                    reintentar_xbox = ahora + REINTENTO_XBOX
             elif not self.emular and xbox is not None:
                 xbox.cerrar()
                 xbox = None

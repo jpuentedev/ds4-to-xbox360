@@ -30,6 +30,8 @@ Hecho en Python con PySide6 (interfaz), hidapi (lectura del DS4) y vgamepad
   posición real frente a la que recibe el juego. Sirven contra el *drift*.
 - **HidHide integrado**: oculta el DS4 real a los juegos para que solo vean el
   Xbox 360 y no reciban cada pulsación dos veces (pasa, por ejemplo, en Roblox).
+- **Comprobación de drivers**: al abrirse, la app avisa si falta ViGEmBus o
+  HidHide y los instala desde la página **🧩 Drivers**.
 - Sigue funcionando en la **bandeja del sistema** al cerrar la ventana.
 
 ## Instalación
@@ -81,6 +83,7 @@ reemplazar sus archivos.
 | `motor.py` | Hilo que une los dos: DS4 → Xbox 360 |
 | `zona_muerta.py` | Zona muerta radial de los sticks |
 | `hidhide.py` | Control de HidHide mediante su CLI |
+| `drivers.py` | Comprueba e instala ViGEmBus y HidHide |
 | `ventana.py`, `vista_mando.py`, `tema.py` | Interfaz |
 | `paso1…paso4_*.py` | Scripts de los primeros pasos del proyecto (aprendizaje) |
 | `empaquetar.py`, `instalador/` | Compilación del `.exe` y del instalador |

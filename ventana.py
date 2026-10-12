@@ -4,22 +4,40 @@ Ventana principal e icono de la bandeja del sistema.
 
 import subprocess
 
-from PySide6.QtCore import QRectF, QSettings, Qt
+from PySide6.QtCore import QRectF, QSettings, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QColorDialog, QGroupBox, QHBoxLayout, QLabel, QMainWindow,
-    QListWidget, QMenu, QPushButton, QRadioButton, QSlider, QStackedWidget, QSystemTrayIcon,
+    QListWidget, QMenu, QMessageBox, QPushButton, QRadioButton, QSlider, QStackedWidget,
+    QSystemTrayIcon,
     QVBoxLayout, QWidget,
 )
 
-from motor import MODO_LUZ_BATERIA, MODO_LUZ_FIJO, Motor
+import drivers
 import hidhide
+from motor import MODO_LUZ_BATERIA, MODO_LUZ_FIJO, Motor
 from tema import ACENTO, AVISO, BORDE, ERROR, EXITO, FONDO, TEXTO_SECUNDARIO
 from vista_mando import VistaMando, VistaZonaMuerta
 
 NOMBRE_APP = "Emulador de Control"
 BATERIA_CRITICA = 15  # % por debajo del cual la batería se muestra en rojo
 ZONA_MUERTA_MAX = 30  # % máximo de los deslizadores
+
+
+class HiloInstalacion(QThread):
+    """Instala drivers sin congelar la ventana (los instaladores tardan un rato)."""
+
+    terminado = Signal(object)  # True, False (permiso rechazado) o la excepción
+
+    def __init__(self, pendientes):
+        super().__init__()
+        self._pendientes = pendientes
+
+    def run(self):
+        try:
+            self.terminado.emit(drivers.instalar(self._pendientes))
+        except OSError as error:
+            self.terminado.emit(error)
 
 
 def crear_icono(color=ACENTO):
@@ -80,6 +98,8 @@ class VentanaPrincipal(QMainWindow):
         self._al_cambiar_conexion(False, "")
         self._refrescar_emulacion()
         self.motor.start()
+        # Cuando la ventana ya se vea: avisar si falta algún driver
+        QTimer.singleShot(500, self._avisar_drivers_que_faltan)
 
     # --- construcción -----------------------------------------------------
 
@@ -179,6 +199,7 @@ class VentanaPrincipal(QMainWindow):
         capa.addStretch()
 
         pagina_hidhide = self._crear_pagina_hidhide()
+        self.pagina_drivers = self._crear_pagina_drivers()
 
         self.paginas = QStackedWidget()
         self.sidebar = QListWidget()
@@ -188,6 +209,7 @@ class VentanaPrincipal(QMainWindow):
             ("🕹️  Mando", pagina_mando),
             ("🎯  Sticks", pagina_sticks),
             ("🛡️  HidHide", pagina_hidhide),
+            ("🧩  Drivers", self.pagina_drivers),
         ):
             self.sidebar.addItem(texto)
             self.paginas.addWidget(pagina)
@@ -341,6 +363,8 @@ class VentanaPrincipal(QMainWindow):
         self.accion_emular.setChecked(quiere)
         if self._virtual_activo:
             self.lbl_emulacion.setText(f"<span style='color:{EXITO}'>●</span> Xbox 360 virtual activo")
+        elif quiere and not drivers.instalado(drivers.VIGEMBUS):
+            self.lbl_emulacion.setText(f"<span style='color:{ERROR}'>●</span> Falta ViGEmBus: instálalo en Drivers")
         elif quiere:
             self.lbl_emulacion.setText(f"<span style='color:{AVISO}'>●</span> Esperando al mando…")
         else:
@@ -365,7 +389,7 @@ class VentanaPrincipal(QMainWindow):
             self.lbl_hh_ds4.clear()
             self.lbl_hh_lista.clear()
             self.btn_hidhide.setText("Ocultar DS4 a los juegos")
-            self.lbl_hh_nota.setText("Instálalo con:  winget install --id Nefarius.HidHide  y reinicia el PC.")
+            self.lbl_hh_nota.setText("Puedes instalarlo desde la página Drivers.")
             return
 
         self.lbl_hh_instalado.setText(punto(EXITO, "HidHide instalado"))
@@ -412,6 +436,141 @@ class VentanaPrincipal(QMainWindow):
             self.lbl_hh_nota.setText(f"Error: {error}")
             return
         self._refrescar_hidhide()
+
+    # --- drivers ------------------------------------------------------------
+
+    def _crear_pagina_drivers(self):
+        self._filas_driver = {}
+        caja = QGroupBox("Drivers necesarios")
+        capa = QVBoxLayout(caja)
+        for driver in drivers.DRIVERS:
+            estado = QLabel()
+            estado.setTextFormat(Qt.RichText)
+            estado.setOpenExternalLinks(True)
+            descripcion = QLabel(driver.descripcion)
+            descripcion.setProperty("secundario", True)
+            descripcion.setWordWrap(True)
+            capa.addWidget(estado)
+            capa.addWidget(descripcion)
+            capa.addSpacing(6)
+            self._filas_driver[driver] = estado
+
+        self.btn_instalar_drivers = QPushButton("Instalar lo que falta")
+        self.btn_instalar_drivers.setMinimumHeight(34)
+        self.btn_instalar_drivers.clicked.connect(self._instalar_drivers)
+        btn_comprobar = QPushButton("Comprobar de nuevo")
+        btn_comprobar.clicked.connect(self._refrescar_drivers)
+        fila = QHBoxLayout()
+        fila.addWidget(self.btn_instalar_drivers, 1)
+        fila.addWidget(btn_comprobar)
+        capa.addLayout(fila)
+        self.lbl_drivers_nota = QLabel()
+        self.lbl_drivers_nota.setProperty("secundario", True)
+        self.lbl_drivers_nota.setWordWrap(True)
+        # Las páginas del QStackedWidget no recalculan la altura de un texto que
+        # pasa a ocupar más líneas: se reserva espacio para dos
+        self.lbl_drivers_nota.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.lbl_drivers_nota.setMinimumHeight(self.lbl_drivers_nota.fontMetrics().lineSpacing() * 2 + 4)
+        capa.addWidget(self.lbl_drivers_nota)
+
+        pagina = QWidget()
+        capa = QVBoxLayout(pagina)
+        capa.setContentsMargins(0, 0, 0, 0)
+        capa.addWidget(caja)
+        capa.addStretch()
+        self._hilo_instalacion = None
+        self._refrescar_drivers()
+        return pagina
+
+    def _refrescar_drivers(self):
+        """Actualiza la página y devuelve los drivers que faltan."""
+        pendientes = []
+        for driver, etiqueta in self._filas_driver.items():
+            if drivers.instalado(driver):
+                etiqueta.setText(f"<span style='color:{EXITO}'>●</span> <b>{driver.nombre}</b>: instalado")
+                continue
+            pendientes.append(driver)
+            color = ERROR if driver.necesario else AVISO
+            texto = f"<span style='color:{color}'>●</span> <b>{driver.nombre}</b>: no instalado"
+            if drivers.ruta_instalador(driver) is None:
+                # El .exe sin el instalador no lleva los drivers: enlace a su web
+                texto += f" · <a href='{driver.web}'>descargar</a>"
+            etiqueta.setText(texto)
+
+        instalables = [d for d in pendientes if drivers.ruta_instalador(d)]
+        ocupado = self._hilo_instalacion is not None
+        self.btn_instalar_drivers.setEnabled(bool(instalables) and not ocupado)
+        self.btn_instalar_drivers.setProperty("primario", bool(instalables))
+        self.btn_instalar_drivers.style().unpolish(self.btn_instalar_drivers)
+        self.btn_instalar_drivers.style().polish(self.btn_instalar_drivers)
+        if not ocupado:
+            if not pendientes:
+                self.lbl_drivers_nota.setText("Está todo instalado.")
+            elif instalables:
+                self.lbl_drivers_nota.setText(
+                    "Windows pedirá permiso de administrador una vez para instalarlos.")
+            else:
+                self.lbl_drivers_nota.setText(
+                    "No encuentro los instaladores junto a la app: descárgalos desde los enlaces.")
+        return pendientes
+
+    def _avisar_drivers_que_faltan(self):
+        pendientes = self._refrescar_drivers()
+        if not pendientes:
+            return
+        lista = "\n".join(f"•  {d.nombre}: {d.descripcion}" for d in pendientes)
+        respuesta = QMessageBox.question(
+            self, NOMBRE_APP,
+            f"Faltan drivers que necesita el emulador:\n\n{lista}\n\n¿Quieres instalarlos ahora?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes,
+        )
+        self.sidebar.setCurrentRow(self.paginas.indexOf(self.pagina_drivers))
+        if respuesta == QMessageBox.Yes:
+            self._instalar_drivers()
+
+    def _instalar_drivers(self):
+        pendientes = [d for d in drivers.faltan() if drivers.ruta_instalador(d)]
+        if not pendientes or self._hilo_instalacion is not None:
+            return
+        self._drivers_instalando = pendientes
+        self._hilo_instalacion = HiloInstalacion(pendientes)
+        self._hilo_instalacion.terminado.connect(self._al_terminar_instalacion)
+        self._hilo_instalacion.start()
+        self.lbl_drivers_nota.setText("Instalando… puede tardar un minuto.")
+        self._refrescar_drivers()
+
+    def _al_terminar_instalacion(self, resultado):
+        self._hilo_instalacion.wait()
+        self._hilo_instalacion = None
+        self._refrescar_drivers()
+        self._refrescar_emulacion()
+        if resultado is False:
+            self.lbl_drivers_nota.setText("Instalación cancelada: no se dio permiso de administrador.")
+            return
+        if isinstance(resultado, Exception):
+            self.lbl_drivers_nota.setText(f"No se pudo instalar: {resultado}")
+            return
+
+        nuevos = [d for d in self._drivers_instalando if drivers.instalado(d)]
+        fallidos = [d.nombre for d in self._drivers_instalando if d not in nuevos]
+        avisos = []
+        if drivers.VIGEMBUS in nuevos:
+            avisos.append("ViGEmBus instalado: el emulador creará el mando de Xbox 360 en unos segundos.")
+        if drivers.HIDHIDE in nuevos:
+            avisos.append("Reinicia el PC, o apaga y enciende el mando, para que HidHide pueda ocultarlo.")
+        if fallidos:
+            avisos.append(f"No se ha podido instalar: {', '.join(fallidos)}.")
+        # En la página, un resumen corto; el detalle va en la ventana emergente
+        if fallidos:
+            resumen = avisos[-1]
+        elif nuevos:
+            resumen = ("Instalado. Reinicia el PC para que HidHide pueda ocultar el mando."
+                       if drivers.HIDHIDE in nuevos else "Instalado.")
+        else:
+            resumen = "Está todo instalado."
+        self.lbl_drivers_nota.setText(resumen)
+        if nuevos:
+            QMessageBox.information(self, NOMBRE_APP, "\n\n".join(avisos))
 
     def _al_cambiar_modo_luz(self):
         self.motor.modo_luz = MODO_LUZ_BATERIA if self.radio_bateria.isChecked() else MODO_LUZ_FIJO

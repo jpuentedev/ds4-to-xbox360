@@ -43,9 +43,10 @@ Name: "inicio"; Description: "Abrir el emulador al iniciar Windows"; GroupDescri
 [Files]
 Source: "..\dist\EmuladorDeControl\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "licencias\*"; DestDir: "{app}\licencias"; Flags: ignoreversion
-; dontcopy: no se instalan; el código los extrae a una carpeta temporal si hacen falta
-Source: "redist\ViGEmBus_Setup.exe"; Flags: dontcopy
-Source: "redist\HidHide_Setup.exe"; Flags: dontcopy
+; Instaladores de los drivers: el código de abajo los usa si faltan, y se
+; quedan en {app}\drivers para que la app pueda reinstalarlos desde su página
+Source: "redist\ViGEmBus_Setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+Source: "redist\HidHide_Setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#Nombre}"; Filename: "{app}\{#Exe}"
@@ -88,8 +89,7 @@ begin
   if DriverInstalado(Servicio) then
     exit;
   WizardForm.StatusLabel.Caption := Texto;
-  ExtractTemporaryFile(Instalador);
-  if not Exec(ExpandConstant('{tmp}\' + Instalador), '/exenoui /qn /norestart', '',
+  if not Exec(ExpandConstant('{app}\drivers\' + Instalador), '/exenoui /qn /norestart', '',
               SW_HIDE, ewWaitUntilTerminated, Codigo) then
     Codigo := -1;
   { 0 = bien; 3010 = bien, pero hay que reiniciar }
