@@ -7,6 +7,21 @@ mandos de Xbox.
 Hecho en Python con PySide6 (interfaz), hidapi (lectura del DS4) y vgamepad
 (mando virtual sobre el driver ViGEmBus).
 
+## Vistazo
+
+![Página Mando: dibujo del DualShock 4 en vivo, emulación, barra de luz y vibración](docs/capturas/mando.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/capturas/sticks.png" alt="Página Sticks: zonas muertas con vista previa en vivo"></td>
+    <td width="50%"><img src="docs/capturas/hidhide.png" alt="Página HidHide: estado y botón para ocultar el DS4"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Sticks</b>: zona muerta de cada stick. Gris = posición real, azul = lo que recibe el juego.</td>
+    <td align="center"><b>HidHide</b>: oculta el DS4 real para que los juegos solo vean el Xbox 360.</td>
+  </tr>
+</table>
+
 ## Funciones
 
 - **Dibujo del mando en vivo**: botones, sticks, gatillos y barra de luz.
