@@ -24,7 +24,7 @@ Hecho en Python con PySide6 (interfaz), hidapi (lectura del DS4) y vgamepad
 
 - **Dibujo del mando en vivo**: botones, sticks, gatillos y barra de luz.
 - **Vibración**: la que piden los juegos se reenvía al DS4.
-- **Barra de luz**: según el nivel de batería o de un color fijo.
+- **Barra de luz**: según el nivel de batería o con un color fijo.
 - **Batería** en la barra de estado; se pone en rojo por debajo del 15 %.
 - **Zonas muertas** configurables para cada stick, con una vista previa de la
   posición real frente a la que recibe el juego. Sirven contra el *drift*.

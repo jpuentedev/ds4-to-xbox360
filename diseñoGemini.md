@@ -28,39 +28,39 @@ Invertiremos la paleta manteniendo la nitidez visual y el contraste para entorno
 
 ---
 
-### 2. Especificaciones de QPainter para el Mando Blanco
+### 2. Especificaciones de QPainter para el mando blanco
 
 Para que el widget de QPainter dibuje fielmente el mando de la foto, modifica los parámetros de renderizado de la siguiente manera:
 
-* **Cuerpo Principal del Mando:**
-* Color de relleno: Blanco puro (`#FFFFFF`) con un sutil degradado radial en los extremos izquierdo y derecho para simular volumen curvo (`#E2E8F0`).
-* Contorno/Silueta: `#CBD5E1` con un grosor de `1.5px`.
+* **Cuerpo principal del mando:**
+* Color de relleno: blanco puro (`#FFFFFF`) con un sutil degradado radial en los extremos izquierdo y derecho para simular volumen curvo (`#E2E8F0`).
+* Contorno/silueta: `#CBD5E1` con un grosor de `1.5px`.
 
 
-* **Touchpad y Botones Centrales (Options, Share, PS):**
-* Color de fondo del Touchpad: Negro brillante (`#111827`) con una textura de puntos sutil o líneas horizontales muy finas dibujadas con un `QPen` gris oscuro. La franja de la barra de luz se sitúa justo en el borde superior de este rectángulo.
-* Botones centrales (Share, Options, PS): Negros (`#1F2937`) con iconos vectoriales en blanco.
+* **Touchpad y botones centrales (Options, Share, PS):**
+* Color de fondo del touchpad: negro brillante (`#111827`) con una textura de puntos sutil o líneas horizontales muy finas dibujadas con un `QPen` gris oscuro. La franja de la barra de luz se sitúa justo en el borde superior de este rectángulo.
+* Botones centrales (Share, Options, PS): negros (`#1F2937`) con iconos vectoriales en blanco.
 
 
-* **Cruceta (D-Pad) y Sticks Analógicos:**
+* **Cruceta (D-Pad) y sticks analógicos:**
 * Las direcciones de la cruceta y los capuchones de los sticks (L3/R3) son de color negro texturizado (`#1F2937`). El anillo interno que rodea la base de los sticks es blanco con un reborde interno gris claro (`#9CA3AF`).
 
 
-* **Botones de Acción (✕, ○, □, △):**
-* Fondo de los botones: Negro (`#1F2937`).
-* Símbolos: Abajo se dibujan con líneas huecas o finas del color clásico de PlayStation exactamente como se aprecia en el mando de referencia:
+* **Botones de acción (✕, ○, □, △):**
+* Fondo de los botones: negro (`#1F2937`).
+* Símbolos: se dibujan con líneas huecas o finas del color clásico de PlayStation, exactamente como se aprecia en el mando de referencia:
 
 
-* **Cruz (✕):** Símbolo en azul claro (`#3B82F6`).
-* **Círculo (○):** Símbolo en rojo (`#EF4444`).
-* **Cuadrado (□):** Símbolo en rosa/magenta (`#EC4899`).
-* **Triángulo (△):** Símbolo en verde esmeralda (`#10B981`).
+* **Cruz (✕):** símbolo en azul claro (`#3B82F6`).
+* **Círculo (○):** símbolo en rojo (`#EF4444`).
+* **Cuadrado (□):** símbolo en rosa/magenta (`#EC4899`).
+* **Triángulo (△):** símbolo en verde esmeralda (`#10B981`).
 
 
 
 
 * **Gatillos (L2 / R2):**
-* Visibles en la parte superior con un tono negro mate (`#374151`) que se rellena verticalmente de azul (`#2563EB`) según la presión analógica de `0` a `255`.
+* visibles en la parte superior con un tono negro mate (`#374151`) que se rellena verticalmente de azul (`#2563EB`) según la presión analógica de `0` a `255`.
 
 
 
@@ -454,7 +454,7 @@ Guarda este código como `preview_white.html` para comprobar en el navegador có
     <div class="app-body">
       <div class="sidebar">
         <div class="nav-item active">🕹️ Mando</div>
-        <div class="nav-item">🎯 Ajustes Sticks</div>
+        <div class="nav-item">🎯 Ajustes de sticks</div>
         <div class="nav-item">🔀 Remapeo</div>
         <div class="nav-item">🛡️ HidHide</div>
       </div>
@@ -464,23 +464,23 @@ Guarda este código como `preview_white.html` para comprobar en el navegador có
           <div class="pad-illustration">
             <div class="lightbar-preview"></div>
           </div>
-          <span style="font-size: 10px; color: #6B7280; margin-top: 8px;">[Simulación QPainter con Mando Blanco]</span>
+          <span style="font-size: 10px; color: #6B7280; margin-top: 8px;">[Simulación QPainter con mando blanco]</span>
         </div>
 
         <div class="controls-grid">
           <div class="card">
             <div class="card-title">Emulación Xbox 360</div>
-            <div style="font-size: 11px; color: #10B981; font-weight: 600;">● Xbox 360 Virtual Activo</div>
-            <button class="btn btn-primary">Detener Emulación</button>
+            <div style="font-size: 11px; color: #10B981; font-weight: 600;">● Xbox 360 virtual activo</div>
+            <button class="btn btn-primary">Detener emulación</button>
           </div>
 
           <div class="card">
-            <div class="card-title">Barra de Luz & Vibración</div>
+            <div class="card-title">Barra de luz y vibración</div>
             <div class="radio-group">
-              <label class="radio-item"><input type="radio" name="light"> Según Batería</label>
-              <label class="radio-item"><input type="radio" name="light" checked> Color Fijo (#2563EB)</label>
+              <label class="radio-item"><input type="radio" name="light"> Según batería</label>
+              <label class="radio-item"><input type="radio" name="light" checked> Color fijo (#2563EB)</label>
             </div>
-            <button class="btn" style="margin-top:2px;">Probar Vibración</button>
+            <button class="btn" style="margin-top:2px;">Probar vibración</button>
           </div>
         </div>
       </div>

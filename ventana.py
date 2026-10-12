@@ -333,7 +333,7 @@ class VentanaPrincipal(QMainWindow):
     def _refrescar_emulacion(self):
         quiere = self.motor.emular
         self.btn_emular.setText("Detener emulación" if quiere else "Iniciar emulación")
-        # Violeta para invitar a iniciar; normal cuando ya está emulando.
+        # Azul para invitar a iniciar; normal cuando ya está emulando.
         # Qt no reaplica el QSS al cambiar una propiedad: hay que "repulirlo".
         self.btn_emular.setProperty("primario", not quiere)
         self.btn_emular.style().unpolish(self.btn_emular)

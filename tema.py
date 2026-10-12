@@ -33,7 +33,7 @@ QWidget {
     color: #1F2937;
 }
 
-/* Sidebar List (Navegación Por Pestañas) */
+/* Sidebar List (navegación por pestañas) */
 QListWidget#sidebar {
     background-color: #FFFFFF;
     border: none;
