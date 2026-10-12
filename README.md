@@ -7,8 +7,6 @@ mandos de Xbox.
 Hecho en Python con PySide6 (interfaz), hidapi (lectura del DS4) y vgamepad
 (mando virtual sobre el driver ViGEmBus).
 
-## Vistazo
-
 ![Página Mando: dibujo del DualShock 4 en vivo, emulación, barra de luz y vibración](docs/capturas/mando.png)
 
 <table>
